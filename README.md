@@ -10,6 +10,7 @@ This is a browser script, that performs an automatic login for the following web
 and other services with the UP login page (maybe something new is coming soon).
 
 ## Installation Guide
+_Open all links in new window with (Ctrl/Cmd + Click)_
 1. Install [Tampermonkey](https://www.tampermonkey.net) for your browser
 2. Follow the link to [UP-AutoLogin UserScript](https://raw.githubusercontent.com/FurTactics/UP-AutoLogin/main/script.user.js)
 3. Click the Install button to complete the installation
@@ -17,6 +18,8 @@ and other services with the UP login page (maybe something new is coming soon).
 5. Enjoy :partying_face:
 
 **else:** open a [new issue](https://github.com/FurTactics/UP-AutoLogin/issues) and try to explain your problem.
+
+**If you entered a wrong login or password, go to the Tampermonkey popup (top right where all the extensions live or right-click anywhere on supported sites or here) → UP Autologin → Delete all your saved data**
 
 ## Compatibility
 This script is compatible with any browser that supports [Tampermonkey](https://www.tampermonkey.net).
