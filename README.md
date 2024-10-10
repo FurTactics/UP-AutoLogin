@@ -13,7 +13,7 @@ and other services with the UP login page (maybe something new is coming soon).
 1. Install [Tampermonkey](https://www.tampermonkey.net) for your browser
 2. Follow the link to [UP-AutoLogin UserScript](https://raw.githubusercontent.com/FurTactics/UP-AutoLogin/main/script.user.js)
 3. Click the Install button to complete the installation
-4. After installing the script, new windows will appear to collect your login and password (don't worry, it's safe because your data only lives only on your local PC)
+4. After installing the script, when you first visit one of the supported sites, new windows will appear to collect your login and password (don't worry, it's safe because your data lives only on your local PC)
 5. Enjoy :partying_face:
 
 **else:** open a [new issue](https://github.com/FurTactics/UP-AutoLogin/issues) and try to explain your problem.
