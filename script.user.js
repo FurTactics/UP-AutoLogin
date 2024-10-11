@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name            UP Autologin
 // @namespace       University of Potsdam AutoLogin
-// @version         0.1.0-alpha
+// @version         0.2.0-alpha
 // @icon            https://www.forschungsdaten.org/images/thumb/e/ed/Uni_Potsdam_Logo.png/300px-Uni_Potsdam_Logo.png
-// @description     Stop wasting your time entering login credentials or pressing useless buttons! (updated from spyfly)
+// @description     Stop wasting your time entering login credentials or pressing useless buttons!
 // @description:de  Verschwende keine Zeit mehr mit dem Eingeben von Anmeldedaten oder dem Drücken sinnloser Tasten!
 // @description:ru  Перестань тратить время на ввод данных или кликанье бесполезных кнопок!
 // @author          FurTactics
@@ -16,6 +16,7 @@
 // @match           https://idp.uni-potsdam.de/idp/*
 // @match           https://moodle2.uni-potsdam.de/*
 // @match           https://examup.uni-potsdam.de/*
+// @match           https://github.com/FurTactics/UP-AutoLogin/*
 // @grant           GM_getValue
 // @grant           GM_setValue
 // @grant           GM_notification
@@ -24,14 +25,17 @@
 // @grant           GM_deleteValue
 // ==/UserScript==
 
-
 (async function () {
     'use strict';
-    // Load Configuration values
-    var up_creds = {
-        username: "",
-        password: "",
+
+    // Enum type in js
+    const ButtonType = {
+        name: 0,
+        id:1,
+        class: 2
     }
+    // Load Configuration values
+    var up_creds;
 
     // Add login and password, if the storage is empty
     if (GM_getValue("creds") != undefined) {
@@ -56,7 +60,11 @@
     const isIdp = (window.location.host == "idp.uni-potsdam.de") && (window.location.href.includes("/idp/profile/SAML2"));
     const isExam = (window.location.host == "examup.uni-potsdam.de");
 
-    // Add a respect button
+    // Add max number of attempts and waiting time to avoid getting stuck if smth went wrong
+    const maxAttempts = 2;
+    const waitTime = 10000; // 10 seconds is enough
+
+    // Add respect and delete all data buttons
     {
         const stat = GM_getValue("stats");
 
@@ -77,27 +85,39 @@
         }, {autoClose: true});
     }
 
+
     if (isMailUp) {
-
-        const hasLoginField = (document.querySelector('input[name="Username"]') != undefined);
-
+        let username;
+        if (window.location.href.includes("/samoware")) {
+            username = "username";
+        } else {
+            username = "Username";
+        }
+        const hasLoginField = (document.querySelector(`input[name="${username}"]`) != undefined);
         if (hasLoginField) {
-            await enterCreds("Username", "Password");
-            var loginSelector = document.querySelector("select[name$='SessionSkin']");
-            var loginIndex;
+            await enterCreds(username, "Password");
+            if (!window.location.href.includes("/samoware")) {
+                var loginSelector = document.querySelector("select[name$='SessionSkin']");
+                var loginIndex;
 
-            // Select MinimalPlus as view Option
-            for (const option of loginSelector.options) {
-                if (option.text == "Standard") {
-                    loginIndex = option.index;
-                    break;
+                // Select Standart as view Option (there are also Minimal and MinimalPlus)
+                for (const option of loginSelector.options) {
+                    if (option.text == "Standard") {
+                        loginIndex = option.index;
+                        break;
+                    }
+                }
+                loginSelector.selectedIndex = loginIndex;
+            }
+            if (document.querySelector(`input[name="Password"]`).value.length > 0) {
+                if (window.location.href.includes("samoware")) {
+                    //document.querySelector('input[type="submit"][name="login"]').click();
+                } else {
+                    pressLoginButton(ButtonType.name, 'login');
                 }
             }
-            loginSelector.selectedIndex = loginIndex;
 
             GM_setValue("stats", GM_getValue('stats') + 1);
-
-            document.querySelector("button[name$='login']").click();
         }
     } else if (isPULS) {
 
@@ -105,8 +125,7 @@
 
         if (hasLoginField) {
             await enterCreds("asdf", "fdsa");
-
-            document.getElementsByClassName("pulsButton invert")[0].click();
+            pressLoginButton(ButtonType.class, 'pulsButton invert');
             GM_setValue("stats", GM_getValue('stats') + 1);
         }
     } else if (isMoodle) {
@@ -121,9 +140,8 @@
 
         if (hasLoginField) {
             await enterCreds("username", "password");
-            document.querySelector("button[id='loginbtn']").click();
+            pressLoginButton(ButtonType.id, 'loginbtn');
             GM_setValue("stats", GM_getValue('stats') + 1);
-
         }
     } else if (isMoodle2) {
         const loginBtn = document.querySelector('a[href="https://moodle2.uni-potsdam.de/login/index.php"]');
@@ -138,7 +156,7 @@
         if (hasLoginField) {
             await enterCreds("j_username", "j_password");
 
-            document.querySelector("button[name$='_eventId_proceed']").click();
+            pressLoginButton(ButtonType.name, '_eventId_proceed');
             GM_setValue("stats", GM_getValue('stats') + 1);
         }
     } else if (isExam) {
@@ -153,7 +171,7 @@
             if (hasLoginField) {
                 await enterCreds("username", "password");
 
-                document.querySelector("button[id$='loginbtn']").click();
+                pressLoginButton(ButtonType.id, 'loginbtn');
                 GM_setValue("stats", GM_getValue('stats') + 1);
             }
         }
@@ -162,6 +180,30 @@
     async function enterCreds(username, password) {
         document.querySelector(`input[name="${username}"]`).value = up_creds.username;
         document.querySelector(`input[name="${password}"]`).value = up_creds.password;
-
     }
+
+    function pressLoginButton(type, buttonName) {
+        let lastAttemptTime = GM_getValue('lastAttemptTime') ? parseInt(GM_getValue('lastAttemptTime')) : 0;
+        const currentTime = Date.now();
+        if ((currentTime - lastAttemptTime) > waitTime) {
+            GM_setValue('loginAttempts', 0);
+        }
+        let attempt = GM_getValue('loginAttempts') ? parseInt(GM_getValue('loginAttempts')) : 0;
+        if (attempt < maxAttempts) {
+            GM_setValue('loginAttempts', ++attempt);
+            GM_setValue('lastAttemptTime', currentTime);
+            if (type === ButtonType.id) {
+                document.querySelector(`button[id$='${buttonName}']`).click();
+            } else if (type === ButtonType.name) {
+                document.querySelector(`button[name$='${buttonName}']`).click();
+            } else if (type === ButtonType.class) {
+                document.getElementsByClassName(`${buttonName}`)[0].click();
+            }
+        } else {
+            const timeLeft = Math.ceil((waitTime - (currentTime - lastAttemptTime)) / 1000);
+            console.log(`Too many attempts. Please wait ${timeLeft} seconds and reload the page.`);
+        }
+    }
+
+
 })();
