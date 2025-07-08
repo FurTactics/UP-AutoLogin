@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name            UP Autologin
 // @namespace       University of Potsdam AutoLogin
-// @version         0.2.0-alpha
+// @version         0.1.1
 // @icon            https://www.forschungsdaten.org/images/thumb/e/ed/Uni_Potsdam_Logo.png/300px-Uni_Potsdam_Logo.png
 // @description     Stop wasting your time entering login credentials or pressing useless buttons!
 // @description:de  Verschwende keine Zeit mehr mit dem Eingeben von Anmeldedaten oder dem Drücken sinnloser Tasten!
@@ -124,8 +124,8 @@
         const hasLoginField = (document.querySelector('input[name="asdf"]') != undefined);
 
         if (hasLoginField) {
-            await enterCreds("asdf", "fdsa");
-            pressLoginButton(ButtonType.class, 'pulsButton invert');
+            await enterCreds("id", "asdf", "fdsa");
+            pressLoginButton(ButtonType.id, 'loginForm:login');
             GM_setValue("stats", GM_getValue('stats') + 1);
         }
     } else if (isMoodle) {
@@ -139,7 +139,7 @@
         }
 
         if (hasLoginField) {
-            await enterCreds("username", "password");
+            await enterCreds("name", "username", "password");
             pressLoginButton(ButtonType.id, 'loginbtn');
             GM_setValue("stats", GM_getValue('stats') + 1);
         }
@@ -154,7 +154,7 @@
     } else if (isIdp) {
         const hasLoginField = (document.querySelector('input[name="j_username"]') != undefined);
         if (hasLoginField) {
-            await enterCreds("j_username", "j_password");
+            await enterCreds("name", "j_username", "j_password");
 
             pressLoginButton(ButtonType.name, '_eventId_proceed');
             GM_setValue("stats", GM_getValue('stats') + 1);
@@ -169,7 +169,7 @@
         } else {
             const hasLoginField = (document.querySelector('input[name="username"]') != undefined);
             if (hasLoginField) {
-                await enterCreds("username", "password");
+                await enterCreds("name", "username", "password");
 
                 pressLoginButton(ButtonType.id, 'loginbtn');
                 GM_setValue("stats", GM_getValue('stats') + 1);
@@ -177,9 +177,9 @@
         }
     }
 
-    async function enterCreds(username, password) {
-        document.querySelector(`input[name="${username}"]`).value = up_creds.username;
-        document.querySelector(`input[name="${password}"]`).value = up_creds.password;
+    async function enterCreds(type, username, password) {
+        document.querySelector(`input[${type}="${username}"]`).value = up_creds.username;
+        document.querySelector(`input[${type}="${password}"]`).value = up_creds.password;
     }
 
     function pressLoginButton(type, buttonName) {
