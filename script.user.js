@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name            UP Autologin
 // @namespace       University of Potsdam AutoLogin
-// @version         0.2.1
+// @version         0.2.2
 // @icon            https://www.forschungsdaten.org/images/thumb/e/ed/Uni_Potsdam_Logo.png/300px-Uni_Potsdam_Logo.png
 // @description     Stop wasting your time entering login credentials or pressing useless buttons!
 // @description:de  Verschwende keine Zeit mehr mit dem Eingeben von Anmeldedaten oder dem Drücken sinnloser Tasten!
@@ -28,20 +28,14 @@
 (async function () {
     'use strict';
 
-    // Enum type in js
+    // Enum for possible buttons
     const ButtonType = {
         name: 0,
-        id:1,
+        id: 1,
         class: 2
     }
     // Load Configuration values
     var up_creds;
-
-    // Initialize variable to check user focused on page
-    let onPage = false;
-
-    // Variable to pause observer
-    let cooldown = false;
 
     // Add login and password, if the storage is empty
     if (GM_getValue("creds") != undefined) {
@@ -66,9 +60,16 @@
     const isIdp = (window.location.host == "idp.uni-potsdam.de") && (window.location.href.includes("/idp/profile/SAML2"));
     const isExam = (window.location.host == "examup.uni-potsdam.de");
 
+    // Initialize variable to check user focused on page
+    let onPage = false;
+
+    // Variable to pause observer
+    let cooldown = false;
+
     // Add max number of attempts and waiting time to avoid getting stuck if smth went wrong
     const maxAttempts = 2;
     const waitTime = 10000; // 10 seconds is enough
+    const cooldownTime = 300000; // Update PULS observer every 5 minutes
 
     // Add respect and delete all data buttons
     {
@@ -89,6 +90,16 @@
                 timeout: 10000,
                 onclick: (event) => {}});
         }, {autoClose: true});
+    }
+
+    function updateActiveState() {
+        // Check is user on page
+        const visible = document.visibilityState === 'visible';
+        const focused = document.hasFocus();
+        onPage = visible && focused;
+        // Update observer if user returns to page
+        cooldown = !onPage;
+        console.debug(onPage ? "User is on page" : "User leaves page");
     }
 
     if (isMailUp) {
@@ -116,7 +127,12 @@
             }
             if (document.querySelector(`input[name="Password"]`).value.length > 0) {
                 if (window.location.href.includes("samoware")) {
+                    // Wait for content load and appear of spinner
                     await sleep(1000);
+                    while (document.querySelector(`.samoware-login__spinner`)?.offsetParent != null) {
+                        // Wait for disappear of spinner
+                        await sleep(1000);
+                    }
                     //document.querySelector('input[type="submit"][name="login"]').click();
                     pressLoginButton(ButtonType.class, 'samoware-login__submit');
                 } else {
@@ -128,28 +144,17 @@
         }
     } else if (isPULS) {
 
-
-        function updateActiveState() {
-            const visible = document.visibilityState === 'visible';
-            const focused = document.hasFocus();
-            onPage = visible && focused;
-            console.debug(onPage ? "User is on page" : "User leaves page");
-        }
-
         window.addEventListener('focus', updateActiveState);
         window.addEventListener('blur', updateActiveState);
         document.addEventListener('visibilitychange', updateActiveState);
         updateActiveState();
 
         const observer = new MutationObserver(async function (mutationsList, observer) {
-            if (cooldown) return;
 
-            if (!onPage) return;
-
-            if (!isPULS) return;
+            if (cooldown || !onPage || !isPULS) return;
 
             const hasFirstLoginField = document.querySelectorAll('input[name="asdf"]').length > 1;
-            const hasExpiredLoginField = document.getElementById("sessionTimeoutLoginDiv")?.offsetParent != null;
+            const hasExpiredLoginField = document.getElementById("sessionTimeoutLoginDiv")?.offsetParent != null; // Appears after this session is expired
             console.debug("hasFirstLoginField: " + hasFirstLoginField);
             console.debug("hasExpiredLoginField: " + hasExpiredLoginField);
 
@@ -169,7 +174,7 @@
             cooldown = true;
             setTimeout(() => {
                 cooldown = false;
-            }, 10000);
+            }, cooldownTime);
         });
 
         observer.observe(document.body, {
@@ -240,12 +245,10 @@
         if (attempt < maxAttempts) {
             GM_setValue('loginAttempts', ++attempt);
             GM_setValue('lastAttemptTime', currentTime);
-            if (type === ButtonType.id) {
-                document.querySelector(`button[id$='${buttonName}']`).click();
-            } else if (type === ButtonType.name) {
-                document.querySelector(`button[name$='${buttonName}']`).click();
-            } else if (type === ButtonType.class) {
-                document.getElementsByClassName(`${buttonName}`)[0].click();
+            switch (type) {
+                case ButtonType.id: document.querySelector(`button[id$='${buttonName}']`).click(); break;
+                case ButtonType.name: document.querySelector(`button[name$='${buttonName}']`).click(); break;
+                case ButtonType.class: document.getElementsByClassName(`${buttonName}`)[0].click(); break;
             }
         } else {
             const timeLeft = Math.ceil((waitTime - (currentTime - lastAttemptTime)) / 1000);
