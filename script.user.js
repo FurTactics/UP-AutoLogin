@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name            UP Autologin
 // @namespace       University of Potsdam AutoLogin
-// @version         0.1.1
+// @version         0.2.0
 // @icon            https://www.forschungsdaten.org/images/thumb/e/ed/Uni_Potsdam_Logo.png/300px-Uni_Potsdam_Logo.png
 // @description     Stop wasting your time entering login credentials or pressing useless buttons!
 // @description:de  Verschwende keine Zeit mehr mit dem Eingeben von Anmeldedaten oder dem Drücken sinnloser Tasten!
@@ -36,6 +36,12 @@
     }
     // Load Configuration values
     var up_creds;
+
+    // Initialize variable to check user focused on page
+    let onPage = false;
+
+    // Variable to pause observer
+    let cooldown = false;
 
     // Add login and password, if the storage is empty
     if (GM_getValue("creds") != undefined) {
@@ -85,6 +91,18 @@
         }, {autoClose: true});
     }
 
+    function updateActiveState() {
+        const visible = document.visibilityState === 'visible';
+        const focused = document.hasFocus();
+        onPage = visible && focused;
+        console.debug(onPage ? "User is on page" : "User leaves page");
+    }
+
+    window.addEventListener('focus', updateActiveState);
+    window.addEventListener('blur', updateActiveState);
+    document.addEventListener('visibilitychange', updateActiveState);
+    updateActiveState();
+
 
     if (isMailUp) {
         let username;
@@ -121,13 +139,41 @@
         }
     } else if (isPULS) {
 
-        const hasLoginField = (document.querySelector('input[name="asdf"]') != undefined);
+        const observer = new MutationObserver(async function (mutationsList, observer) {
+            if (cooldown) return;
 
-        if (hasLoginField) {
-            await enterCreds("id", "asdf", "fdsa");
-            pressLoginButton(ButtonType.id, 'loginForm:login');
-            GM_setValue("stats", GM_getValue('stats') + 1);
-        }
+            if (!onPage) return;
+
+            if (!isPULS) return;
+
+            const hasFirstLoginField = document.querySelectorAll('input[name="asdf"]').length > 1;
+            const hasExpiredLoginField = document.getElementById("sessionTimeoutLoginDiv")?.offsetParent != null;
+            console.debug("hasFirstLoginField: " + hasFirstLoginField);
+            console.debug("hasExpiredLoginField: " + hasExpiredLoginField);
+
+            if (hasFirstLoginField && !hasExpiredLoginField) {
+                await enterCreds("id", "asdf", "fdsa");
+                pressLoginButton(ButtonType.id, 'loginForm:login');
+                GM_setValue("stats", GM_getValue('stats') + 1);
+                observer.disconnect();
+            }
+
+            if (!hasFirstLoginField && hasExpiredLoginField) {
+                await enterCreds("id", "asdf", "fdsa");
+                pressLoginButton(ButtonType.class, 'submit_login');
+                GM_setValue("stats", GM_getValue('stats') + 1);
+                observer.disconnect();
+            }
+            cooldown = true;
+            setTimeout(() => {
+                cooldown = false;
+            }, 10000);
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
     } else if (isMoodle) {
 
         const hasLoginField = (document.querySelector('input[name="username"]') != undefined);
@@ -207,3 +253,7 @@
 
 
 })();
+
+async function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
