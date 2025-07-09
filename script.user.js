@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name            UP Autologin
 // @namespace       University of Potsdam AutoLogin
-// @version         0.2.0
+// @version         0.2.1
 // @icon            https://www.forschungsdaten.org/images/thumb/e/ed/Uni_Potsdam_Logo.png/300px-Uni_Potsdam_Logo.png
 // @description     Stop wasting your time entering login credentials or pressing useless buttons!
 // @description:de  Verschwende keine Zeit mehr mit dem Eingeben von Anmeldedaten oder dem Drücken sinnloser Tasten!
@@ -91,19 +91,6 @@
         }, {autoClose: true});
     }
 
-    function updateActiveState() {
-        const visible = document.visibilityState === 'visible';
-        const focused = document.hasFocus();
-        onPage = visible && focused;
-        console.debug(onPage ? "User is on page" : "User leaves page");
-    }
-
-    window.addEventListener('focus', updateActiveState);
-    window.addEventListener('blur', updateActiveState);
-    document.addEventListener('visibilitychange', updateActiveState);
-    updateActiveState();
-
-
     if (isMailUp) {
         let username;
         if (window.location.href.includes("/samoware")) {
@@ -113,7 +100,7 @@
         }
         const hasLoginField = (document.querySelector(`input[name="${username}"]`) != undefined);
         if (hasLoginField) {
-            await enterCreds(username, "Password");
+            await enterCreds("name", username, "Password");
             if (!window.location.href.includes("/samoware")) {
                 var loginSelector = document.querySelector("select[name$='SessionSkin']");
                 var loginIndex;
@@ -129,7 +116,9 @@
             }
             if (document.querySelector(`input[name="Password"]`).value.length > 0) {
                 if (window.location.href.includes("samoware")) {
+                    await sleep(1000);
                     //document.querySelector('input[type="submit"][name="login"]').click();
+                    pressLoginButton(ButtonType.class, 'samoware-login__submit');
                 } else {
                     pressLoginButton(ButtonType.name, 'login');
                 }
@@ -138,6 +127,19 @@
             GM_setValue("stats", GM_getValue('stats') + 1);
         }
     } else if (isPULS) {
+
+
+        function updateActiveState() {
+            const visible = document.visibilityState === 'visible';
+            const focused = document.hasFocus();
+            onPage = visible && focused;
+            console.debug(onPage ? "User is on page" : "User leaves page");
+        }
+
+        window.addEventListener('focus', updateActiveState);
+        window.addEventListener('blur', updateActiveState);
+        document.addEventListener('visibilitychange', updateActiveState);
+        updateActiveState();
 
         const observer = new MutationObserver(async function (mutationsList, observer) {
             if (cooldown) return;
